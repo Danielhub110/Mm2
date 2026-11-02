@@ -7,6 +7,7 @@ local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ContextActionService = game:GetService("ContextActionService") -- Added native cross-platform action binder [INDEX]
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
@@ -78,13 +79,12 @@ local function locateGunDrop()
     return nil
 end
 
--- FIXED LIVE WORKSPACE SCANNER: Scans your exact Spawns folder structure to determine true arena state [INDEX]
+-- FIXED LIVE WORKSPACE SCANNER: Scans your exact Spawns folder structure to determine true arena state
 local function isCharacterInActiveArena()
     local character = LocalPlayer.Character
     local rootPart = character and character:FindFirstChild("HumanoidRootPart")
     if not rootPart then return false end
 
-    -- Check if character is standing close to any parts in Workspace.Lobby.Spawns [INDEX]
     local lobbyFolder = Workspace:FindFirstChild("Lobby")
     local spawnsFolder = lobbyFolder and lobbyFolder:FindFirstChild("Spawns")
     
@@ -92,14 +92,13 @@ local function isCharacterInActiveArena()
         for _, pad in ipairs(spawnsFolder:GetDescendants()) do
             if pad:IsA("BasePart") then
                 local distance = (rootPart.Position - pad.Position).Magnitude
-                if distance < 45 then -- Inside lobby boundaries check [INDEX]
+                if distance < 45 then 
                     return false
                 end
             end
         end
     end
 
-    -- Fallback backup check for standard UI indicator panels
     local mainGui = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("MainGui")
     if mainGui and mainGui:FindFirstChild("Game") and mainGui.Game:FindFirstChild("RoundHint") then
         local roundText = mainGui.Game.RoundHint.Text
@@ -246,7 +245,7 @@ local function applyESP(player)
                     local hasKnife = (backpack and backpack:FindFirstChild("Knife")) or char:FindFirstChild("Knife")
                     local hasGun = (backpack and backpack:FindFirstChild("Gun")) or char:FindFirstChild("Gun")
 
-if hasKnife then
+                    if hasKnife then
 highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Murderer Red
 elseif hasGun then
 highlight.FillColor = Color3.fromRGB(0, 0, 255) -- Sheriff Blue
@@ -751,6 +750,14 @@ end
 end)
 end
 end)
+-- FIXED DRIFT: ContextActionService catches iPad Bluetooth shortcuts cleanly without hijacking WASD focus [INDEX]
+local function handleMobileKeybindTrigger(actionName, userInputState, inputObject)
+if userInputState == Enum.UserInputState.Begin then
+teleportToGun()
+end
+return Enum.ContextActionResult.Pass -- Passes inputs onward so movement strings do not freeze [INDEX]
+end
+ContextActionService:BindAction("iPadGunTeleportBind", handleMobileKeybindTrigger, false, Enum.KeyCode.F)
 -- Runtime step loops
 local lastGunInstance = nil
 local notificationTimer = 0
