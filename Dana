@@ -1,25 +1,53 @@
-
--- DAYANA'S MM2 HUB + LIVE CLOCK (DYNAMIC PAGINATION VERSION)
--- Sectioned UI Layout with Thicker FOV Ring, Dynamic Color Picker, and Fixed Close Button
+-- DANIEL'S MM2 HUB + LIVE CLOCK (DYNAMIC FIXED VERSION WITH SNIFFED CANDY ENGINE, NO-CLIP COIN FARM & NOTIFICATION SYSTEMS)
+-- Centered Blue Theme Layout with Advanced Aimlock, Custom Gold Candy ESP, and No-Clip Fly Farm Controls
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
-_G.MM2_ESP_Enabled = false
+-- Re-allocating full matrix variables to exactly match classic settings
+_G.PlayerESP_Enabled = false 
+_G.MM2_ESP_Enabled = false   
 _G.AutoGrabGun = false
 _G.GunESP_Enabled = false
 _G.Aimlock_Active = false 
-_G.AutoShoot_Enabled = false 
+_G.OnlyAimAsSheriff = false     
 _G.TpButton_Draggable = false
+_G.AimButton_Draggable = false 
+_G.CoinFarm_Enabled = false
+_G.ResetWhenFull_Enabled = false 
+_G.AutoLeave_Enabled = false   
+_G.AutoBuy_Enabled = false      
+_G.CoinFarm_Speed = 24 
 _G.FOV_Radius = 150 
+_G.WalkSpeed_Value = 16
 
--- FOV Color Cycling System Engine Array List
+-- Global position anchor storage to guarantee return safety
+_G.MemoryCFrame = nil
+
+-- Internal Currency State Listeners hooking your precise network schema table formats
+local trackedCollectedAmount = 0
+local coinsStartedRemote = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Gameplay") and ReplicatedStorage.Remotes.Gameplay:FindFirstChild("CoinsStarted")
+
+if coinsStartedRemote and (coinsStartedRemote:IsA("RemoteEvent") or coinsStartedRemote:IsA("BindableEvent")) then
+    coinsStartedRemote.OnClientEvent:Connect(function(data)
+        if data and type(data) == "table" then
+            if data.Candy and data.Candy.CollectedAmount then
+                trackedCollectedAmount = tonumber(data.Candy.CollectedAmount) or 0
+            elseif data.Coin and data.Coin.CollectedAmount then
+                trackedCollectedAmount = tonumber(data.Coin.CollectedAmount) or 0
+            end
+        end
+    end)
+end
+
+-- Classic FOV Color Cycling System Array List
 local fovColorList = {
     Color3.fromRGB(0, 150, 255),   -- 1. Ice Blue (Default)
     Color3.fromRGB(255, 0, 150),   -- 2. Neon Pink
@@ -29,7 +57,15 @@ local fovColorList = {
 local fovColorNames = {"Ice Blue", "Neon Pink", "Yellow", "Emerald"}
 local currentFovColorIndex = 1
 
--- Find dropped gun
+-- Safely clear out existing caches across all potential storage contexts to avoid duplication conflicts
+for _, name in ipairs({"Daniel’s script", "DeltaMM2Menu", "DeltaTimeGui", "DevToolkitGUI", "MM2DraggableTP", "MM2DraggableAIM", "MM2GunNotification"}) do
+    local oldCore = CoreGui:FindFirstChild(name)
+    if oldCore then oldCore:Destroy() end
+    local oldPlayer = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild(name)
+    if oldPlayer then oldPlayer:Destroy() end
+end
+
+-- Find dropped gun model instance paths
 local function locateGunDrop()
     local gun = Workspace:FindFirstChild("GunDrop")
     if gun then return gun end
@@ -42,7 +78,74 @@ local function locateGunDrop()
     return nil
 end
 
--- Pinpoint active Murderer
+-- FIXED LIVE WORKSPACE SCANNER: Scans your exact Spawns folder structure to determine true arena state [INDEX]
+local function isCharacterInActiveArena()
+    local character = LocalPlayer.Character
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return false end
+
+    -- Check if character is standing close to any parts in Workspace.Lobby.Spawns [INDEX]
+    local lobbyFolder = Workspace:FindFirstChild("Lobby")
+    local spawnsFolder = lobbyFolder and lobbyFolder:FindFirstChild("Spawns")
+    
+    if spawnsFolder then
+        for _, pad in ipairs(spawnsFolder:GetDescendants()) do
+            if pad:IsA("BasePart") then
+                local distance = (rootPart.Position - pad.Position).Magnitude
+                if distance < 45 then -- Inside lobby boundaries check [INDEX]
+                    return false
+                end
+            end
+        end
+    end
+
+    -- Fallback backup check for standard UI indicator panels
+    local mainGui = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("MainGui")
+    if mainGui and mainGui:FindFirstChild("Game") and mainGui.Game:FindFirstChild("RoundHint") then
+        local roundText = mainGui.Game.RoundHint.Text
+        if roundText:match("Lobby") or roundText:match("Intermission") or roundText:match("Voting") or roundText == "" then
+            return false
+        end
+    end
+    return true
+end
+
+-- Check if LocalPlayer is holding or carrying the Sheriff weapon blueprint items
+local function isLocalPlayerSheriff()
+    local char = LocalPlayer.Character
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    local hasGunItem = (backpack and backpack:FindFirstChild("Gun")) or (char and char:FindFirstChild("Gun"))
+    if hasGunItem then return true end
+    return false
+end
+
+-- Dynamic candy and coin scanner framework update
+local function getClosestCoin()
+    local closestCoin = nil
+    local shortestDistance = math.huge
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    
+    if root then
+        for _, v in ipairs(Workspace:GetDescendants()) do
+            if v:IsA("TouchTransmitter") and v.Parent and v.Parent:IsA("BasePart") then
+                local item = v.Parent
+                local pName = string.lower(item.Name)
+                
+                if string.find(pName, "coin") or string.find(pName, "candy") or string.find(pName, "sweet") or string.find(pName, "token") or item:FindFirstChild("CoinVisual") then
+                    local distance = (item.Position - root.Position).Magnitude
+                    if distance < shortestDistance then
+                        shortestDistance = distance
+                        closestCoin = item
+                    end
+                end
+            end
+        end
+    end
+    return closestCoin
+end
+
+-- Pinpoint active Murderer character vectors
 local function getMurdererCharacter()
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
@@ -58,687 +161,673 @@ local function getMurdererCharacter()
     return nil
 end
 
--- Player Role ESP
-local function applyESP(player)
-    local function setupHighlight(char)
-        task.wait(1)
-        if not char or not char.Parent then return end
-        local old = char:FindFirstChild("RoleESP")
-        if old then old:Destroy() end
-
-        local highlight = Instance.new("Highlight")
-        highlight.Name = "RoleESP"
-        highlight.Parent = char
-        highlight.FillTransparency = 0.5
-        highlight.OutlineTransparency = 0
-        highlight.Enabled = _G.MM2_ESP_Enabled
-
-        task.spawn(function()
-            while char.Parent and highlight.Parent do
-                highlight.Enabled = _G.MM2_ESP_Enabled
-                if _G.MM2_ESP_Enabled then
-                    local backpack = player:FindFirstChild("Backpack")
-                    local hasKnife = (backpack and backpack:FindFirstChild("Knife")) or char:FindFirstChild("Knife")
-                    local hasGun = (backpack and backpack:FindFirstChild("Gun")) or char:FindFirstChild("Gun")
-
-                    if hasKnife then
-                        highlight.FillColor = Color3.fromRGB(255, 0, 0) 
-                    elseif hasGun then
-                        highlight.FillColor = Color3.fromRGB(0, 0, 255) 
-                    else
-                        highlight.FillColor = Color3.fromRGB(0, 255, 0) 
+-- Universal capacity sniffer
+local function isCoinBagFull()
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    local mainGui = playerGui and playerGui:FindFirstChild("MainGui")
+    local gameUi = mainGui and mainGui:FindFirstChild("Game")
+    
+    if gameUi then
+        for _, uiElement in ipairs(gameUi:GetDescendants()) do
+            if uiElement:IsA("TextLabel") then
+                local current, max = uiElement.Text:match("(%d+)%s*/%s*(%--%d+)")
+                if current and max then
+                    local currentCount = tonumber(current)
+                    local maxCapacity = tonumber(max)
+                    if currentCount and maxCapacity and currentCount >= maxCapacity then
+                        return true
                     end
                 end
-                task.wait(1)
             end
-        end)
+        end
     end
-    if player.Character then task.spawn(setupHighlight, player.Character) end
-    player.CharacterAdded:Connect(setupHighlight)
+
+    if trackedCollectedAmount >= 40 then
+        return true
+    end
+
+    local candyAttribute = LocalPlayer:GetAttribute("Candies") or LocalPlayer:GetAttribute("Candy") or LocalPlayer:GetAttribute("Coins") or LocalPlayer:GetAttribute("Coin")
+    if candyAttribute and type(candyAttribute) == "number" and candyAttribute >= 40 then
+        return true
+    end
+
+    return false
 end
 
-for _, player in ipairs(Players:GetPlayers()) do applyESP(player) end
-Players.PlayerAdded:Connect(applyESP)
-
-local function updateAllESPHighlights()
-    for _, player in ipairs(Players:GetPlayers()) do
-        local char = player.Character
-        local highlight = char and char:FindFirstChild("RoleESP")
-        if highlight then highlight.Enabled = _G.MM2_ESP_Enabled end
-    end
-end
-
--- Teleport to dropped gun and return
+-- UNIFIED STABILIZED TWO-WAY TELEPORTATION ENGINE
 local function teleportToGun()
     local character = LocalPlayer.Character
+    local root = character and character:FindFirstChild("HumanoidRootPart")
     local gunDrop = locateGunDrop()
-    if character and gunDrop then
-        local originalCFrame = character:GetPivot()
-        character:PivotTo(gunDrop:GetPivot() * CFrame.new(0, 1.5, 0))
-        task.wait(0.25)
-        character:PivotTo(originalCFrame)
+    
+    if character and root and gunDrop then
+        _G.MemoryCFrame = root.CFrame
+        root.Velocity = Vector3.new(0, 0, 0)
+        root.RotVelocity = Vector3.new(0, 0, 0)
+        root.CFrame = gunDrop:GetPivot() * CFrame.new(0, 1.5, 0)
+        
+        task.wait(0.2) 
+        
+        root.Velocity = Vector3.new(0, 0, 0)
+        root.RotVelocity = Vector3.new(0, 0, 0)
+        root.CFrame = _G.MemoryCFrame
+        root.Anchored = true
+        
+        task.wait(0.15)
+        root.Anchored = false
+        _G.MemoryCFrame = nil
     else
         warn("Gun drop not found.")
     end
 end
 
--- Behind-the-scenes Gun ESP Highlight Engine Loop
-task.spawn(function()
-    while task.wait(0.3) do
-        local gunDrop = locateGunDrop()
-
-        if gunDrop then
-            local gunHighlight = gunDrop:FindFirstChild("GunHighlight")
-
-            if _G.GunESP_Enabled then
-                if not gunHighlight then
-                    gunHighlight = Instance.new("Highlight")
-                    gunHighlight.Name = "GunHighlight"
-                    gunHighlight.FillColor = Color3.fromRGB(240, 200, 0) 
-                    gunHighlight.FillTransparency = 0.2
-                    gunHighlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                    gunHighlight.Parent = gunDrop
-                end
-            elseif gunHighlight then
-                gunHighlight:Destroy()
-            end
+-- FIXED CORE ESP PIPELINE
+local function applyESP(player)
+    local function setupHighlight(char)
+        task.wait(0.5)
+        if not char or not char.Parent then return end
+        
+        local highlight = char:FindFirstChild("RoleESP")
+        if not highlight then
+            highlight = Instance.new("Highlight")
+            highlight.Name = "RoleESP"
+            highlight.Parent = char
         end
-    end
-end)
+        
+        highlight.FillTransparency = 0.5
+        highlight.OutlineTransparency = 0
+        highlight.Enabled = _G.PlayerESP_Enabled
 
+        task.spawn(function()
+            while char.Parent and highlight.Parent do
+                highlight.Enabled = _G.PlayerESP_Enabled
+                if _G.PlayerESP_Enabled then
+                    local backpack = player:FindFirstChild("Backpack")
+                    local hasKnife = (backpack and backpack:FindFirstChild("Knife")) or char:FindFirstChild("Knife")
+                    local hasGun = (backpack and backpack:FindFirstChild("Gun")) or char:FindFirstChild("Gun")
+
+if hasKnife then
+highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Murderer Red
+elseif hasGun then
+highlight.FillColor = Color3.fromRGB(0, 0, 255) -- Sheriff Blue
+else
+highlight.FillColor = Color3.fromRGB(0, 255, 0) -- Innocent Green
+end
+end
+task.wait(0.3)
+end
+end)
+end
+if player.Character then task.spawn(setupHighlight, player.Character) end
+player.CharacterAdded:Connect(setupHighlight)
+end
+for _, player in ipairs(Players:GetPlayers()) do applyESP(player) end
+Players.PlayerAdded:Connect(applyESP)
+local function updateAllESPHighlights()
+for _, player in ipairs(Players:GetPlayers()) do
+local char = player.Character
+local highlight = char and char:FindFirstChild("RoleESP")
+if highlight then highlight.Enabled = _G.PlayerESP_Enabled end
+end
+end
 -- ScreenGui Setup
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "Daniel’s script"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = CoreGui
-
--- ====================================================================
--- FOV CIRCLE GRAPHIC DESIGN SYSTEM
--- ====================================================================
+local uiParent = nil
+local coreGuiSuccess, coreGuiResult = pcall(function() return CoreGui end)
+if coreGuiSuccess and coreGuiResult and not UserInputService:GetFocusedTextBox() then
+local checkTest = Instance.new("Frame")
+local testSuccess = pcall(function() checkTest.Parent = coreGuiResult end)
+checkTest:Destroy()
+if testSuccess then uiParent = coreGuiResult end
+end
+if not uiParent then uiParent = LocalPlayer:WaitForChild("PlayerGui") end
+ScreenGui.Parent = uiParent
+-- Drop Gun Tracking ESP System
+local activeCandyHighlights = {}
+task.spawn(function()
+while task.wait(0.3) do
+local gunDrop = locateGunDrop()
+if gunDrop then
+local gunHighlight = gunDrop:FindFirstChild("GunHighlight")
+if _G.GunESP_Enabled then
+if not gunHighlight then
+gunHighlight = Instance.new("Highlight")
+gunHighlight.Name = "GunHighlight"
+gunHighlight.FillColor = Color3.fromRGB(240, 240, 0)
+gunHighlight.FillTransparency = 0.2
+gunHighlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+gunHighlight.Parent = gunDrop
+end
+elseif gunHighlight then gunHighlight:Destroy() end
+end
+if _G.MM2_ESP_Enabled then
+local currentPass = {}
+for _, obj in ipairs(Workspace:GetDescendants()) do
+local name = string.lower(obj.Name)
+if (string.find(name, "candy") or string.find(name, "coin") or string.find(name, "sweet")) and (obj:IsA("BasePart") or obj:IsA("Model")) then
+currentPass[obj] = true
+if not activeCandyHighlights[obj] then
+local hl = Instance.new("Highlight")
+hl.Name = "CandyHighlight"
+hl.FillColor = Color3.fromRGB(255, 198, 0)
+hl.FillTransparency = 0.4
+hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+hl.Adornee = obj
+hl.Parent = ScreenGui
+activeCandyHighlights[obj] = hl
+end
+end
+end
+for oldObj, hl in pairs(activeCandyHighlights) do
+if not currentPass[oldObj] then if hl then hl:Destroy() end activeCandyHighlights[oldObj] = nil end
+end
+else
+for obj, hl in pairs(activeCandyHighlights) do if hl then hl:Destroy() end end
+table.clear(activeCandyHighlights)
+end
+end
+end)
+-- Screen-Center Visual Ring Overlay
 local FOVCircleFrame = Instance.new("Frame")
 FOVCircleFrame.Name = "FOVCircleFrame"
 FOVCircleFrame.Size = UDim2.new(0, _G.FOV_Radius * 2, 0, _G.FOV_Radius * 2)
 FOVCircleFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-FOVCircleFrame.Position = UDim2.new(0.5, 0, 0.5, 0) 
+FOVCircleFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 FOVCircleFrame.BackgroundTransparency = 1
-FOVCircleFrame.Visible = false 
+FOVCircleFrame.Visible = false
 FOVCircleFrame.Parent = ScreenGui
-
-
-
 local CircleCorner = Instance.new("UICorner")
-CircleCorner.CornerRadius = UDim.new(1, 0) 
+CircleCorner.CornerRadius = UDim.new(1, 0)
 CircleCorner.Parent = FOVCircleFrame
-
 local CircleStroke = Instance.new("UIStroke")
-CircleStroke.Thickness = 3.0 
+CircleStroke.Thickness = 3.0
 CircleStroke.Color = fovColorList[currentFovColorIndex]
-CircleStroke.Transparency = 0.35 
+CircleStroke.Transparency = 0.35
 CircleStroke.Parent = FOVCircleFrame
-
--- Weapon projectile fire trigger hook
-local function triggerGunShot(targetPos)
-    local char = LocalPlayer.Character
-    local gun = char and char:FindFirstChild("Gun")
-    if gun and gun:FindFirstChild("KnifeLocal") and gun.KnifeLocal:FindFirstChild("CreateProjectile") then
-        gun.KnifeLocal.CreateProjectile:FireServer(targetPos)
-    end
-end
-
--- HARD-LOCK MAXIMUM STRENGTH AIMLOCK TRACKING ENGINE WITH VARIABLE FOV COLORS
-RunService.RenderStepped:Connect(function()
-    if _G.Aimlock_Active then
-        FOVCircleFrame.Visible = true
-        FOVCircleFrame.Size = UDim2.new(0, _G.FOV_Radius * 2, 0, _G.FOV_Radius * 2)
-        
-        local targetChar = getMurdererCharacter()
-        if targetChar then
-            local rootPart = targetChar:FindFirstChild("HumanoidRootPart")
-            local lockPart = targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChild("Head") 
-            
-            if lockPart and rootPart then
-                local screenPoint, onScreen = Camera:WorldToViewportPoint(lockPart.Position)
-                
-                if onScreen then
-                    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                    local distanceToCenter = (Vector2.new(screenPoint.X, screenPoint.Y) - screenCenter).Magnitude
-                    
-                    if distanceToCenter <= _G.FOV_Radius then
-                        local predictedPosition = lockPart.Position + (rootPart.Velocity * 0.125) + Vector3.new(0, 0.1, 0)
-                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, predictedPosition)
-                        CircleStroke.Color = Color3.fromRGB(0, 255, 150) 
-                        
-                        if _G.AutoShoot_Enabled then
-                            triggerGunShot(predictedPosition)
-                        end
-                        return
-                    end
-                end
-            end
-        end
-        CircleStroke.Color = fovColorList[currentFovColorIndex]
-    else
-        FOVCircleFrame.Visible = false
-    end
-end)
-
-
--- Base Main Panel UI Window Frame Configuration
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 360, 0, 380)
-MainFrame.Position = UDim2.new(0.1, 0, 0.3, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(55, 20, 75) -- Purple background
-MainFrame.BorderSizePixel = 0
-MainFrame.Parent = ScreenGui
-MainFrame.Active = true
-MainFrame.Draggable = true
-
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0, 10)
-Corner.Parent = MainFrame
-
--- Menu Title
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(0, 150, 0, 40)
-Title.Position = UDim2.new(0, 15, 0, 0)
-Title.Text = "Dayana's Hub"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 16
-Title.Font = Enum.Font.SourceSansBold
-Title.BackgroundTransparency = 1
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = MainFrame
-
--- Close Window Button
-local MinButton = Instance.new("TextButton")
-MinButton.Size = UDim2.new(0, 35, 0, 35)
-MinButton.Position = UDim2.new(1, -40, 0, 3)
-MinButton.Text = "❌"
-MinButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-MinButton.TextSize = 14
-MinButton.Font = Enum.Font.SourceSansBold
-MinButton.BackgroundTransparency = 1
-MinButton.Parent = MainFrame
-
--- Live UI Top Bar Clock
+-- Gun Notifications Panel
+local notifyPanel = Instance.new("Frame")
+notifyPanel.Name = "GunNotification"
+notifyPanel.Size = UDim2.new(0, 180, 0, 80)
+notifyPanel.Position = UDim2.new(1, -210, 1, -260)
+notifyPanel.BackgroundColor3 = Color3.fromRGB(15, 25, 50)
+notifyPanel.BackgroundTransparency = 0.15
+notifyPanel.Visible = false
+notifyPanel.Parent = ScreenGui
+local notifyCorner = Instance.new("UICorner")
+notifyCorner.CornerRadius = UDim.new(0, 8)
+notifyCorner.Parent = notifyPanel
+local notifyStroke = Instance.new("UIStroke")
+notifyStroke.Color = Color3.fromRGB(255, 198, 0)
+notifyStroke.Thickness = 1.5
+notifyStroke.Parent = notifyPanel
+local notifyText = Instance.new("TextLabel")
+notifyText.Size = UDim2.new(1, -20, 1, -10)
+notifyText.Position = UDim2.new(0, 10, 0, 5)
+notifyText.BackgroundTransparency = 1
+notifyText.Text = "GUN DROPPED\n-- studs away\nYOU CAN PICK IT UP"
+notifyText.TextColor3 = Color3.new(1, 1, 1)
+notifyText.TextSize = 13
+notifyText.Font = Enum.Font.GothamBold
+notifyText.LineHeight = 1.3
+notifyText.Parent = notifyPanel
+-- ====================================================================
+-- MASTER LIGHT BLUE DESIGN CONFIGURATIONS
+-- ====================================================================
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 360, 0, 350)
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 30, 45) -- Main Light Blue / Navy Frame Base
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = ScreenGui
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = mainFrame
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(0, 180, 0, 40)
+title.Position = UDim2.new(0, 15, 0, 5)
+title.BackgroundTransparency = 1
+title.Text = "FANTNAME Hub🍬"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.TextSize = 16
+title.Font = Enum.Font.GothamBold
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = mainFrame
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -35, 0, 8)
+closeButton.BackgroundTransparency = 1
+closeButton.Text = "✕"
+closeButton.TextColor3 = Color3.fromRGB(0, 150, 255)
+closeButton.TextSize = 16
+closeButton.Font = Enum.Font.GothamBold
+closeButton.Parent = mainFrame
 local TimeLabel = Instance.new("TextLabel")
 TimeLabel.Size = UDim2.new(0, 100, 0, 35)
-TimeLabel.Position = UDim2.new(1, -145, 0, 3)
+TimeLabel.Position = UDim2.new(1, -145, 0, 5)
 TimeLabel.BackgroundTransparency = 1
 TimeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 TimeLabel.TextSize = 12
 TimeLabel.Font = Enum.Font.GothamBold
 TimeLabel.TextXAlignment = Enum.TextXAlignment.Right
 TimeLabel.Text = os.date("%I:%M %p")
-TimeLabel.Parent = MainFrame
+TimeLabel.Parent = mainFrame
 task.spawn(function()
 while ScreenGui.Parent and TimeLabel.Parent do
 TimeLabel.Text = os.date("%I:%M %p")
 task.wait(1)
 end
 end)
--- Left Column: Navigation Section Sidebar Panel (FIXED THE DOUBLE-NAMING BLOCKING TYPO HERE)
+-- Sidebar Container
 local NavBar = Instance.new("Frame")
-NavBar.Name = "NavBar"
 NavBar.Size = UDim2.new(0, 95, 1, -50)
 NavBar.Position = UDim2.new(0, 10, 0, 40)
-NavBar.BackgroundColor3 = Color3.fromRGB(40, 12, 55)
+NavBar.BackgroundColor3 = Color3.fromRGB(10, 20, 35)
 NavBar.BorderSizePixel = 0
-NavBar.Parent = MainFrame
-local NavCorner = Instance.new("UICorner")
-NavCorner.CornerRadius = UDim.new(0, 6)
-NavCorner.Parent = NavBar
--- Separate Content Containers for Clean Toggling
-local UniversalPage = Instance.new("Frame")
-UniversalPage.Name = "UniversalPage"
-UniversalPage.Size = UDim2.new(1, -125, 1, -50)
-UniversalPage.Position = UDim2.new(0, 115, 0, 40)
-UniversalPage.BackgroundTransparency = 1
-UniversalPage.Visible = true
-UniversalPage.Parent = MainFrame
+NavBar.Parent = mainFrame
+Instance.new("UICorner", NavBar).CornerRadius = UDim.new(0, 6)
 local MM2Page = Instance.new("Frame")
-MM2Page.Name = "MM2Page"
 MM2Page.Size = UDim2.new(1, -125, 1, -50)
 MM2Page.Position = UDim2.new(0, 115, 0, 40)
 MM2Page.BackgroundTransparency = 1
-MM2Page.Visible = false
-MM2Page.Parent = MainFrame
--- Section Toggle Buttons inside Sidebar Navbar
-local UniversalTabBtn = Instance.new("TextButton")
-UniversalTabBtn.Size = UDim2.new(1, -10, 0, 30)
-UniversalTabBtn.Position = UDim2.new(0, 5, 0, 10)
-UniversalTabBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 150) -- Pink selection
-UniversalTabBtn.Text = "Universal"
-UniversalTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-UniversalTabBtn.Font = Enum.Font.SourceSansBold
-UniversalTabBtn.TextSize = 14
-UniversalTabBtn.Parent = NavBar
-Instance.new("UICorner", UniversalTabBtn).CornerRadius = UDim.new(0, 4)
-local MM2TabBtn = Instance.new("TextButton")
-MM2TabBtn.Size = UDim2.new(1, -10, 0, 30)
-MM2TabBtn.Position = UDim2.new(0, 5, 0, 45)
-MM2TabBtn.BackgroundColor3 = Color3.fromRGB(65, 25, 85)
-MM2TabBtn.Text = "MM2"
-MM2TabBtn.TextColor3 = Color3.fromRGB(240, 200, 255)
-MM2TabBtn.Font = Enum.Font.SourceSansBold
-MM2TabBtn.TextSize = 14
-MM2TabBtn.Parent = NavBar
-Instance.new("UICorner", MM2TabBtn).CornerRadius = UDim.new(0, 4)
--- Table to sync multiple Role ESP buttons globally
-local espButtons = {}
-local function toggleRoleESP()
-_G.MM2_ESP_Enabled = not _G.MM2_ESP_Enabled
-for _, btn in ipairs(espButtons) do
-btn.BackgroundColor3 = _G.MM2_ESP_Enabled and Color3.fromRGB(0, 150, 255) or Color3.fromRGB(45, 15, 65)
-btn.Text = "Role ESP: " .. (_G.MM2_ESP_Enabled and "ON" or "OFF")
-end
-updateAllESPHighlights()
-end
--- Logic Handling clean page separation when clicked
-UniversalTabBtn.MouseButton1Click:Connect(function()
-UniversalPage.Visible = true
-MM2Page.Visible = false
-UniversalTabBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 150)
-MM2TabBtn.BackgroundColor3 = Color3.fromRGB(65, 25, 85)
-end)
-MM2TabBtn.MouseButton1Click:Connect(function()
-UniversalPage.Visible = false
 MM2Page.Visible = true
-MM2TabBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 150)
-UniversalTabBtn.BackgroundColor3 = Color3.fromRGB(65, 25, 85)
+MM2Page.Parent = mainFrame
+local CoinPage = Instance.new("Frame")
+CoinPage.Size = UDim2.new(1, -125, 1, -50)
+CoinPage.Position = UDim2.new(0, 115, 0, 40)
+CoinPage.BackgroundTransparency = 1
+CoinPage.Visible = false
+CoinPage.Parent = mainFrame
+-- Tabs Navigation
+local MM2TabBtn = Instance.new("TextButton")
+MM2TabBtn.Size = UDim2.new(1, -10, 0, 32)
+MM2TabBtn.Position = UDim2.new(0, 5, 0, 10)
+MM2TabBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+MM2TabBtn.Text = "MM2"
+MM2TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MM2TabBtn.Font = Enum.Font.GothamBold
+MM2TabBtn.TextSize = 12
+MM2TabBtn.Parent = NavBar
+Instance.new("UICorner", MM2TabBtn).CornerRadius = UDim.new(0, 6)
+local CoinTabBtn = Instance.new("TextButton")
+CoinTabBtn.Size = UDim2.new(1, -10, 0, 32)
+CoinTabBtn.Position = UDim2.new(0, 5, 0, 47)
+CoinTabBtn.BackgroundColor3 = Color3.fromRGB(20, 35, 55)
+CoinTabBtn.Text = "Coin Farm"
+CoinTabBtn.TextColor3 = Color3.fromRGB(150, 200, 255)
+CoinTabBtn.Font = Enum.Font.GothamBold
+CoinTabBtn.TextSize = 12
+CoinTabBtn.Parent = NavBar
+Instance.new("UICorner", CoinTabBtn).CornerRadius = UDim.new(0, 6)
+MM2TabBtn.MouseButton1Click:Connect(function()
+MM2Page.Visible = true; CoinPage.Visible = false
+MM2TabBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+CoinTabBtn.BackgroundColor3 = Color3.fromRGB(20, 35, 55)
+CoinTabBtn.TextColor3 = Color3.fromRGB(150, 200, 255)
 end)
+CoinTabBtn.MouseButton1Click:Connect(function()
+MM2Page.Visible = false; CoinPage.Visible = true
+CoinTabBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+MM2TabBtn.BackgroundColor3 = Color3.fromRGB(20, 35, 55)
+MM2TabBtn.TextColor3 = Color3.fromRGB(150, 200, 255)
+end)
+local mm2Scroll = Instance.new("ScrollingFrame")
+mm2Scroll.Size = UDim2.new(1, 0, 1, 0)
+mm2Scroll.BackgroundTransparency = 1
+mm2Scroll.BorderSizePixel = 0
+mm2Scroll.ScrollBarThickness = 2
+mm2Scroll.ScrollBarImageColor3 = Color3.fromRGB(0, 150, 255)
+mm2Scroll.Parent = MM2Page
+local mm2List = Instance.new("UIListLayout")
+mm2List.Padding = UDim.new(0, 6)
+mm2List.SortOrder = Enum.SortOrder.LayoutOrder
+mm2List.Parent = mm2Scroll
+mm2List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() mm2Scroll.CanvasSize = UDim2.fromOffset(0, mm2List.AbsoluteContentSize.Y + 15) end)
+local coinScroll = Instance.new("ScrollingFrame")
+coinScroll.Size = UDim2.new(1, 0, 1, 0)
+coinScroll.BackgroundTransparency = 1
+coinScroll.BorderSizePixel = 0
+coinScroll.ScrollBarThickness = 2
+coinScroll.ScrollBarImageColor3 = Color3.fromRGB(0, 150, 255)
+coinScroll.Parent = CoinPage
+local coinList = Instance.new("UIListLayout")
+coinList.Padding = UDim.new(0, 6)
+coinList.SortOrder = Enum.SortOrder.LayoutOrder
+coinList.Parent = coinScroll
+coinList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() coinScroll.CanvasSize = UDim2.fromOffset(0, coinList.AbsoluteContentSize.Y + 15) end)
+-- FLOATING DRAGGABLE SHORTCUT WIDGETS
+local dragAimButton = Instance.new("TextButton")
+dragAimButton.Name = "MM2DraggableAIM"
+dragAimButton.Size = UDim2.new(0, 105, 0, 38)
+dragAimButton.Position = UDim2.new(0.85, 0, 0.35, 0)
+dragAimButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+dragAimButton.Text = "AIMLOCK: OFF"
+dragAimButton.TextColor3 = Color3.new(1, 1, 1)
+dragAimButton.Font = Enum.Font.GothamBold
+dragAimButton.TextSize = 11
+dragAimButton.Visible = false
+dragAimButton.Active = true
+dragAimButton.Draggable = true
+dragAimButton.Parent = ScreenGui
+Instance.new("UICorner", dragAimButton).CornerRadius = UDim.new(0, 6)
+local dragTpButton = Instance.new("TextButton")
+dragTpButton.Name = "MM2DraggableTP"
+dragTpButton.Size = UDim2.new(0, 50, 0, 50)
+dragTpButton.Position = UDim2.new(0.85, 0, 0.45, 0)
+dragTpButton.BackgroundColor3 = Color3.fromRGB(255, 210, 0)
+dragTpButton.Text = "GUN"
+dragTpButton.TextColor3 = Color3.new(0, 0, 0)
+dragTpButton.Font = Enum.Font.GothamBold
+dragTpButton.TextSize = 11
+dragTpButton.Visible = false
+dragTpButton.Active = true
+dragTpButton.Draggable = true
+dragTpButton.Parent = ScreenGui
+Instance.new("UICorner", dragTpButton).CornerRadius = UDim.new(0, 25)
+-- Unified interface synchronization matrix map
+local activeUiToggleButtonsMap = {}
+-- MODERN SWITCH-TRACK TOGGLE FACTORY
+local function createMenuToggle(labelText, targetGlobalKey, targetParent, callback)
+local container = Instance.new("Frame")
+container.Size = UDim2.new(1, -6, 0, 38)
+container.BackgroundColor3 = Color3.fromRGB(22, 36, 52)
+container.BorderSizePixel = 0
+container.Parent = targetParent
+Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
+local textLabel = Instance.new("TextLabel")
+textLabel.Size = UDim2.new(1, -65, 1, 0)
+textLabel.Position = UDim2.new(0, 12, 0, 0)
+textLabel.BackgroundTransparency = 1
+textLabel.Text = labelText
+textLabel.TextColor3 = Color3.fromRGB(240, 245, 255)
+textLabel.TextSize = 12
+textLabel.Font = Enum.Font.GothamMedium
+textLabel.TextXAlignment = Enum.TextXAlignment.Left
+textLabel.Parent = container
+local switchTrack = Instance.new("TextButton")
+switchTrack.Size = UDim2.new(0, 34, 0, 20)
+switchTrack.Position = UDim2.new(1, -44, 0.5, -10)
+switchTrack.BackgroundColor3 = _G[targetGlobalKey] and Color3.fromRGB(40, 150, 80) or Color3.fromRGB(75, 85, 95)
+switchTrack.Text = ""
+switchTrack.AutoButtonColor = false
+switchTrack.Parent = container
+Instance.new("UICorner", switchTrack).CornerRadius = UDim.new(0, 10)
+local toggleKnob = Instance.new("Frame")
+toggleKnob.Size = UDim2.new(0, 14, 0, 14)
+toggleKnob.Position = _G[targetGlobalKey] and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7)
+toggleKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+toggleKnob.Parent = switchTrack
+Instance.new("UICorner", toggleKnob).CornerRadius = UDim.new(1, 0)
+local separatorLine = Instance.new("Frame")
+separatorLine.Size = UDim2.new(1, -24, 0, 1)
+separatorLine.Position = UDim2.new(0, 12, 1, 2)
+separatorLine.BackgroundColor3 = Color3.fromRGB(30, 45, 65)
+separatorLine.BorderSizePixel = 0
+separatorLine.Parent = container
+local function syncVisualState()
+switchTrack.BackgroundColor3 = _G[targetGlobalKey] and Color3.fromRGB(40, 150, 80) or Color3.fromRGB(75, 85, 95)
+toggleKnob:TweenPosition(_G[targetGlobalKey] and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7), "Out", "Quad", 0.15, true)
+end
+switchTrack.Activated:Connect(function()
+_G[targetGlobalKey] = not _G[targetGlobalKey]
+syncVisualState()
+if callback then callback(_G[targetGlobalKey]) end
+end)
+activeUiToggleButtonsMap[targetGlobalKey] = syncVisualState
+return container
+end
+-- ACTION PANEL MANAGER
+local function createMenuAction(labelText, targetParent, callback)
+local container = Instance.new("Frame")
+container.Size = UDim2.new(1, -6, 0, 38)
+container.BackgroundColor3 = Color3.fromRGB(22, 36, 52)
+container.BorderSizePixel = 0
+container.Parent = targetParent
+Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
+local actionButton = Instance.new("TextButton")
+actionButton.Size = UDim2.new(1, 0, 1, 0)
+actionButton.BackgroundTransparency = 1
+actionButton.Text = " " .. labelText
+actionButton.TextColor3 = Color3.fromRGB(240, 245, 255)
+actionButton.Font = Enum.Font.GothamMedium
+actionButton.TextSize = 12
+actionButton.TextXAlignment = Enum.TextXAlignment.Left
+actionButton.Parent = container
+local separatorLine = Instance.new("Frame")
+separatorLine.Size = UDim2.new(1, -24, 0, 1)
+separatorLine.Position = UDim2.new(0, 12, 1, 2)
+separatorLine.BackgroundColor3 = Color3.fromRGB(30, 45, 65)
+separatorLine.BorderSizePixel = 0
+separatorLine.Parent = container
+actionButton.Activated:Connect(function() if callback then callback() end end)
+return actionButton
+end
+local function createMenuSlider(labelText, targetGlobalKey, minV, maxV, defaultV, targetParent, callback)
+local container = Instance.new("Frame")
+container.Size = UDim2.new(1, -6, 0, 48)
+container.BackgroundColor3 = Color3.fromRGB(22, 36, 52)
+container.Parent = targetParent
+Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
+local lbl = Instance.new("TextLabel")
+lbl.Size = UDim2.new(1, -20, 0, 20)
+lbl.Position = UDim2.new(0, 12, 0, 2)
+lbl.BackgroundTransparency = 1
+lbl.Text = labelText .. ": " .. tostring(defaultV)
+lbl.TextColor3 = Color3.fromRGB(240, 245, 255)
+lbl.Font = Enum.Font.GothamMedium
+lbl.TextSize = 12
+lbl.TextXAlignment = Enum.TextXAlignment.Left
+lbl.Parent = container
+local track = Instance.new("TextButton")
+track.Size = UDim2.new(1, -24, 0, 4)
+track.Position = UDim2.new(0, 12, 0, 30)
+track.BackgroundColor3 = Color3.fromRGB(15, 25, 45)
+track.Text = ""
+track.Parent = container
+Instance.new("UICorner", track).CornerRadius = UDim.new(0, 2)
+local knob = Instance.new("Frame")
+knob.Size = UDim2.new(0, 10, 0, 10)
+knob.AnchorPoint = Vector2.new(0.5, 0.5)
+knob.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+knob.Parent = track
+Instance.new("UICorner", knob).CornerRadius = UDim.new(0, 5)
+local startPercent = (defaultV - minV) / (maxV - minV)
+knob.Position = UDim2.new(startPercent, 0, 0.5, 0)
+local isDragging = false
+local function updateSlider(input)
+local percentage = math.clamp((input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+knob.Position = UDim2.new(percentage, 0, 0.5, 0)
+local value = math.floor(minV + (percentage * (maxV - minV)))
+lbl.Text = labelText .. ": " .. tostring(value)
+_G[targetGlobalKey] = value
+if callback then callback(value) end
+end
+track.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isDragging = true updateSlider(input) end end)
+UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isDragging = false end end)
+UserInputService.InputChanged:Connect(function(input) if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then updateSlider(input) end end)
+end
 -- ====================================================================
--- SECTION 1: UNIVERSAL CONTROLS
+-- RENDERING COMPONENT INTERFACES
 -- ====================================================================
--- 1. WalkSpeed Slider Block Container
-local SliderContainer = Instance.new("Frame")
-SliderContainer.Size = UDim2.new(1, 0, 0, 50)
-SliderContainer.Position = UDim2.new(0, 0, 0, 5)
-SliderContainer.BackgroundColor3 = Color3.fromRGB(45, 15, 65)
-SliderContainer.BorderSizePixel = 0
-SliderContainer.Parent = UniversalPage
-Instance.new("UICorner", SliderContainer).CornerRadius = UDim.new(0, 6)
-local SliderLabel = Instance.new("TextLabel")
-SliderLabel.Size = UDim2.new(1, -20, 0, 20)
-SliderLabel.Position = UDim2.new(0, 10, 0, 3)
-SliderLabel.BackgroundTransparency = 1
-SliderLabel.Text = "WalkSpeed: 16"
-SliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-SliderLabel.Font = Enum.Font.SourceSansBold
-SliderLabel.TextSize = 13
-SliderLabel.TextXAlignment = Enum.TextXAlignment.Left
-SliderLabel.Parent = SliderContainer
-local SliderTrack = Instance.new("TextButton")
-SliderTrack.Size = UDim2.new(1, -20, 0, 6)
-SliderTrack.Position = UDim2.new(0, 10, 0, 32)
-SliderTrack.BackgroundColor3 = Color3.fromRGB(25, 8, 40)
-SliderTrack.BorderSizePixel = 0
-SliderTrack.Text = ""
-SliderTrack.AutoButtonColor = false
-SliderTrack.Parent = SliderContainer
-Instance.new("UICorner", SliderTrack).CornerRadius = UDim.new(0, 3)
-local SliderKnob = Instance.new("Frame")
-SliderKnob.Size = UDim2.new(0, 12, 0, 12)
-SliderKnob.Position = UDim2.new(0, 0, 0.5, 0)
-SliderKnob.AnchorPoint = Vector2.new(0.5, 0.5)
-SliderKnob.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-SliderKnob.BorderSizePixel = 0
-SliderKnob.Parent = SliderTrack
-Instance.new("UICorner", SliderKnob).CornerRadius = UDim.new(1, 0)
-local minSpeed, maxSpeed, isDraggingSpeed = 16, 150, false
-local function updateWalkSpeed(input)
-local absoluteX = SliderTrack.AbsolutePosition.X
-local sizeX = SliderTrack.AbsoluteSize.X
-local percentage = math.clamp((input.Position.X - absoluteX) / sizeX, 0, 1)
-SliderKnob.Position = UDim2.new(percentage, 0, 0.5, 0)
-local speedValue = math.floor(minSpeed + (percentage * (maxSpeed - minSpeed)))
-SliderLabel.Text = "WalkSpeed: " .. tostring(speedValue)
+-- --- TAB 1: MM2 CONTROLS ---
+createMenuSlider("WalkSpeed", "WalkSpeed_Value", 16, 150, 16, mm2Scroll, function(v)
 local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-if hum then hum.WalkSpeed = speedValue end
-end
-SliderTrack.InputBegan:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-isDraggingSpeed = true updateWalkSpeed(input)
-end
+if hum then hum.WalkSpeed = v end
 end)
-UserInputService.InputEnded:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-isDraggingSpeed = false
-end
-end)
-UserInputService.InputChanged:Connect(function(input)
-if isDraggingSpeed and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-updateWalkSpeed(input)
-end
-end)
--- 2. FOV Size Slider Block Container
-local FOVSliderContainer = Instance.new("Frame")
-FOVSliderContainer.Size = UDim2.new(1, 0, 0, 50)
-FOVSliderContainer.Position = UDim2.new(0, 0, 0, 60)
-FOVSliderContainer.BackgroundColor3 = Color3.fromRGB(45, 15, 65)
-FOVSliderContainer.BorderSizePixel = 0
-FOVSliderContainer.Parent = UniversalPage
-Instance.new("UICorner", FOVSliderContainer).CornerRadius = UDim.new(0, 6)
-local FOVSliderLabel = Instance.new("TextLabel")
-FOVSliderLabel.Size = UDim2.new(1, -20, 0, 20)
-FOVSliderLabel.Position = UDim2.new(0, 10, 0, 3)
-FOVSliderLabel.BackgroundTransparency = 1
-FOVSliderLabel.Text = "FOV Size: 150"
-FOVSliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-FOVSliderLabel.Font = Enum.Font.SourceSansBold
-FOVSliderLabel.TextSize = 13
-FOVSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
-FOVSliderLabel.Parent = FOVSliderContainer
-local FOVSliderTrack = Instance.new("TextButton")
-FOVSliderTrack.Size = UDim2.new(1, -20, 0, 6)
-FOVSliderTrack.Position = UDim2.new(0, 10, 0, 32)
-FOVSliderTrack.BackgroundColor3 = Color3.fromRGB(25, 8, 40)
-FOVSliderTrack.BorderSizePixel = 0
-FOVSliderTrack.Text = ""
-FOVSliderTrack.AutoButtonColor = false
-FOVSliderTrack.Parent = FOVSliderContainer
-Instance.new("UICorner", FOVSliderTrack).CornerRadius = UDim.new(0, 3)
-local FOVSliderKnob = Instance.new("Frame")
-FOVSliderKnob.Size = UDim2.new(0, 12, 0, 12)
-FOVSliderKnob.Position = UDim2.new(0.27, 0, 0.5, 0)
-FOVSliderKnob.AnchorPoint = Vector2.new(0.5, 0.5)
-FOVSliderKnob.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-FOVSliderKnob.BorderSizePixel = 0
-FOVSliderKnob.Parent = FOVSliderTrack
-Instance.new("UICorner", FOVSliderKnob).CornerRadius = UDim.new(1, 0)
-local minFOV, maxFOV, isDraggingFOV = 50, 400, false
-local function updateFOVSize(input)
-local absoluteX = FOVSliderTrack.AbsolutePosition.X
-local sizeX = FOVSliderTrack.AbsoluteSize.X
-local percentage = math.clamp((input.Position.X - absoluteX) / sizeX, 0, 1)
-FOVSliderKnob.Position = UDim2.new(percentage, 0, 0.5, 0)
-local fovValue = math.floor(minFOV + (percentage * (maxFOV - minFOV)))
-FOVSliderLabel.Text = "FOV Size: " .. tostring(fovValue)
-_G.FOV_Radius = fovValue
-end
-FOVSliderTrack.InputBegan:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-isDraggingFOV = true updateFOVSize(input)
-end
-end)
-UserInputService.InputEnded:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-isDraggingFOV = false
-end
-end)
-FOVSliderTrack.InputChanged:Connect(function(input)
-if isDraggingFOV and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-updateFOVSize(input)
-end
-end)
--- 3. FOV Ring Cycle Color Button Picker
-local FovColorPickerBtn = Instance.new("TextButton")
-FovColorPickerBtn.Size = UDim2.new(1, 0, 0, 35)
-FovColorPickerBtn.Position = UDim2.new(0, 0, 0, 115)
-FovColorPickerBtn.BackgroundColor3 = Color3.fromRGB(45, 15, 65)
-FovColorPickerBtn.Text = "FOV Color: Ice Blue"
-FovColorPickerBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-FovColorPickerBtn.Font = Enum.Font.SourceSansBold
-FovColorPickerBtn.TextSize = 14
-FovColorPickerBtn.Parent = UniversalPage
-Instance.new("UICorner", FovColorPickerBtn).CornerRadius = UDim.new(0, 6)
-FovColorPickerBtn.MouseButton1Click:Connect(function()
+createMenuSlider("FOV Size", "FOV_Radius", 50, 400, 150, mm2Scroll)
+local fovSelectorActionBtn
+fovSelectorActionBtn = createMenuAction("FOV Color: Ice Blue", mm2Scroll, function()
 currentFovColorIndex = currentFovColorIndex + 1
-if currentFovColorIndex > #fovColorList then
-currentFovColorIndex = 1
+if currentFovColorIndex > #fovColorList then currentFovColorIndex = 1 end
+CircleStroke.Color = fovColorList[currentFovColorIndex]
+fovSelectorActionBtn.Text = " FOV Color: " .. fovColorNames[currentFovColorIndex]
+end)
+local function handleDynamicAimlockVisualSync(state)
+dragAimButton.Text = state and "AIMLOCK: ON" or "AIMLOCK: OFF"
+dragAimButton.BackgroundColor3 = state and Color3.fromRGB(40, 150, 80) or Color3.fromRGB(180, 50, 50)
+FOVCircleFrame.Visible = state
+if activeUiToggleButtonsMap["Aimlock_Active"] then
+activeUiToggleButtonsMap"Aimlock_Active"
 end
-FovColorPickerBtn.Text = "FOV Color: " .. fovColorNames[currentFovColorIndex]
+end
+createMenuToggle("Role ESP", "PlayerESP_Enabled", mm2Scroll, function(state) updateAllESPHighlights() end)
+createMenuToggle("Sheriff Aimlock", "Aimlock_Active", mm2Scroll, handleDynamicAimlockVisualSync)
+createMenuToggle("Draggable Aimlock Button", "AimButton_Draggable", mm2Scroll, function(state) dragAimButton.Visible = state end)
+createMenuToggle("Only Aim While Sheriff", "OnlyAimAsSheriff", mm2Scroll)
+createMenuToggle("Gun Tracking ESP", "GunESP_Enabled", mm2Scroll)
+createMenuAction("Teleport to Dropped Gun", mm2Scroll, function() teleportToGun() end)
+createMenuToggle("Draggable Gun TP Button", "TpButton_Draggable", mm2Scroll, function(state) dragTpButton.Visible = state end)
+-- --- TAB 2: COIN FARM CONTROLS ---
+createMenuToggle("Coin & Candy Farm", "CoinFarm_Enabled", coinScroll)
+createMenuToggle("Gold Candy ESP", "MM2_ESP_Enabled", coinScroll)
+createMenuToggle("Reset When Bag Full", "ResetWhenFull_Enabled", coinScroll)
+createMenuToggle("Auto-Leave Danger", "AutoLeave_Enabled", coinScroll)
+createMenuSlider("Farm Speed Setting", "CoinFarm_Speed", 15, 100, 24, coinScroll)
+local AutoBuyBtn
+AutoBuyBtn = createMenuAction("Auto Buy Boxes: OFF [Box 1]", coinScroll, function()
+if not _G.AutoBuy_Enabled then _G.AutoBuy_Enabled = true else _G.AutoBuy_Enabled = false end
+AutoBuyBtn.Text = " Auto Buy Boxes: " .. (_G.AutoBuy_Enabled and "ON [Box 1]" or "OFF [Box 1]")
 end)
--- 4. Role ESP Toggle Button (Universal Tab)
-local EspBtnUni = Instance.new("TextButton")
-EspBtnUni.Size = UDim2.new(1, 0, 0, 35)
-EspBtnUni.Position = UDim2.new(0, 0, 0, 155)
-EspBtnUni.BackgroundColor3 = Color3.fromRGB(45, 15, 65)
-EspBtnUni.Text = "Role ESP: OFF"
-EspBtnUni.TextColor3 = Color3.fromRGB(255, 255, 255)
-EspBtnUni.Font = Enum.Font.SourceSansBold
-EspBtnUni.TextSize = 14
-EspBtnUni.Parent = UniversalPage
-Instance.new("UICorner", EspBtnUni).CornerRadius = UDim.new(0, 6)
-table.insert(espButtons, EspBtnUni)
-EspBtnUni.MouseButton1Click:Connect(toggleRoleESP)
--- ====================================================================
--- SECTION 2: MM2 GAME FEATURES
--- ====================================================================
--- 1. Auto Shoot Toggle Button
-local AutoShootBtn = Instance.new("TextButton")
-AutoShootBtn.Size = UDim2.new(1, 0, 0, 35)
-AutoShootBtn.Position = UDim2.new(0, 0, 0, 5)
-AutoShootBtn.BackgroundColor3 = Color3.fromRGB(45, 15, 65)
-AutoShootBtn.Text = "Auto-Shoot: OFF"
-AutoShootBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-AutoShootBtn.Font = Enum.Font.SourceSansBold
-AutoShootBtn.TextSize = 14
-AutoShootBtn.Parent = MM2Page
-Instance.new("UICorner", AutoShootBtn).CornerRadius = UDim.new(0, 6)
-AutoShootBtn.MouseButton1Click:Connect(function()
-_G.AutoShoot_Enabled = not _G.AutoShoot_Enabled
-AutoShootBtn.BackgroundColor3 = _G.AutoShoot_Enabled and Color3.fromRGB(0, 150, 255) or Color3.fromRGB(45, 15, 65)
-AutoShootBtn.Text = "Auto-Shoot: " .. (_G.AutoShoot_Enabled and "ON" or "OFF")
+createMenuAction("Teleport to Lobby Map", coinScroll, function()
+local lobby = Workspace:FindFirstChild("Lobby") or Workspace:FindFirstChild("LobbyWorkspace")
+local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+if root and lobby then
+local spawnPart = lobby:FindFirstChildWhichIsA("BasePart", true)
+if spawnPart then root.CFrame = spawnPart.CFrame + Vector3.new(0, 3, 0) end
+end
 end)
--- 2. Teleport to Gun Main Button Setup (Pink)
-local TpGunBtn = Instance.new("TextButton")
-TpGunBtn.Name = "TpGunBtn"
-TpGunBtn.Size = UDim2.new(1, 0, 0, 35)
-TpGunBtn.Position = UDim2.new(0, 0, 0, 48)
-TpGunBtn.BackgroundColor3 = Color3.fromRGB(45, 15, 65)
-TpGunBtn.Text = "Teleport to Gun"
-TpGunBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-TpGunBtn.Font = Enum.Font.SourceSansBold
-TpGunBtn.TextSize = 14
-TpGunBtn.Parent = MM2Page
-local TpCorner = Instance.new("UICorner", TpGunBtn)
-TpCorner.CornerRadius = UDim.new(0, 6)
-local tpDragging = false
-local dragInput, dragStart, startPos
-TpGunBtn.InputBegan:Connect(function(input)
-if _G.TpButton_Draggable and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
-tpDragging = true
-dragStart = input.Position
-startPos = TpGunBtn.Position
-input.Changed:Connect(function()
+-- ====================================================================
+-- REOPEN HUB CONFIGURATION
+-- ====================================================================
+local openButton = Instance.new("TextButton")
+openButton.Name = "FANTNAMEHubOpenButton"
+openButton.Size = UDim2.fromOffset(160, 36)
+openButton.AnchorPoint = Vector2.new(0.5, 0)
+openButton.Position = UDim2.new(0.5, 0, 0.02, 0)
+openButton.BackgroundColor3 = Color3.fromRGB(15, 35, 75)
+openButton.Text = "OPEN FANTNAME HUB"
+openButton.TextColor3 = Color3.new(1, 1, 1)
+openButton.Font = Enum.Font.GothamBold
+openButton.TextSize = 11
+openButton.Visible = false
+openButton.Parent = ScreenGui
+Instance.new("UICorner", openButton).CornerRadius = UDim.new(0, 6)
+local openStroke = Instance.new("UIStroke", openButton)
+openStroke.Color = Color3.fromRGB(0, 150, 255)
+openStroke.Thickness = 1.5
+closeButton.Activated:Connect(function()
+mainFrame.Visible = false
+openButton.Visible = true
+end)
+openButton.MouseButton1Click:Connect(function()
+mainFrame.Visible = true
+openButton.Visible = false
+end)
+openButton.TouchTap:Connect(function()
+mainFrame.Visible = true; openButton.Visible = false
+end)
+-- Floating Actions Shortcut Mechanics
+local function handleFloatingAimlockShortcutClick()
+_G.Aimlock_Active = not _G.Aimlock_Active
+handleDynamicAimlockVisualSync(_G.Aimlock_Active)
+end
+dragAimButton.MouseButton1Click:Connect(handleFloatingAimlockShortcutClick)
+dragAimButton.TouchTap:Connect(handleFloatingAimlockShortcutClick)
+dragTpButton.InputBegan:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+local startPos = input.Position
+local conn
+conn = input.Changed:Connect(function()
 if input.UserInputState == Enum.UserInputState.End then
-tpDragging = false
-end
-end)
-end
-end)
-TpGunBtn.InputChanged:Connect(function(input)
-if _G.TpButton_Draggable and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-dragInput = input
-end
-end)
-UserInputService.InputChanged:Connect(function(input)
-if input == dragInput and tpDragging then
-local delta = input.Position - dragStart
-TpGunBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-end
-end)
-TpGunBtn.MouseButton1Click:Connect(function()
+conn:Disconnect()
+if (input.Position - startPos).Magnitude < 5 then
 teleportToGun()
-end)
--- 3. Toggle Button Drag Mode Setup
-local DragToggleBtn = Instance.new("TextButton")
-DragToggleBtn.Size = UDim2.new(1, 0, 0, 35)
-DragToggleBtn.Position = UDim2.new(0, 0, 0, 91)
-DragToggleBtn.BackgroundColor3 = Color3.fromRGB(45, 15, 65)
-DragToggleBtn.Text = "Toggle Button Drag: OFF"
-DragToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-DragToggleBtn.Font = Enum.Font.SourceSansBold
-DragToggleBtn.TextSize = 14
-DragToggleBtn.Parent = MM2Page
-Instance.new("UICorner", DragToggleBtn).CornerRadius = UDim.new(0, 6)
-DragToggleBtn.MouseButton1Click:Connect(function()
-_G.TpButton_Draggable = not _G.TpButton_Draggable
-DragToggleBtn.BackgroundColor3 = _G.TpButton_Draggable and Color3.fromRGB(255, 0, 150) or Color3.fromRGB(45, 15, 65)
-DragToggleBtn.Text = "Toggle Button Drag: " .. (_G.TpButton_Draggable and "ON" or "OFF")
-if _G.TpButton_Draggable then
-TpGunBtn.Parent = ScreenGui
-TpGunBtn.Size = UDim2.new(0, 140, 0, 35)
-TpGunBtn.Position = UDim2.new(0.5, -70, 0.5, -17)
-TpGunBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 150)
-TpGunBtn.Text = "🎯 TP TO GUN"
-else
-TpGunBtn.Parent = MM2Page
-TpGunBtn.Size = UDim2.new(1, 0, 0, 35)
-TpGunBtn.Position = UDim2.new(0, 0, 0, 48)
-TpGunBtn.BackgroundColor3 = Color3.fromRGB(45, 15, 65)
-TpGunBtn.Text = "Teleport to Gun"
+end
 end
 end)
--- 4. Auto Grab Gun Toggle Button (Purple)
-local AutoGrabBtn = Instance.new("TextButton")
-AutoGrabBtn.Size = UDim2.new(1, 0, 0, 35)
-AutoGrabBtn.Position = UDim2.new(0, 0, 0, 134)
-AutoGrabBtn.BackgroundColor3 = Color3.fromRGB(45, 15, 65)
-AutoGrabBtn.Text = "Auto-Grab Gun: OFF"
-AutoGrabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-AutoGrabBtn.Font = Enum.Font.SourceSansBold
-AutoGrabBtn.TextSize = 14
-AutoGrabBtn.Parent = MM2Page
-Instance.new("UICorner", AutoGrabBtn).CornerRadius = UDim.new(0, 6)
-AutoGrabBtn.MouseButton1Click:Connect(function()
-_G.AutoGrabGun = not _G.AutoGrabGun
-AutoGrabBtn.BackgroundColor3 = _G.AutoGrabGun and Color3.fromRGB(150, 0, 255) or Color3.fromRGB(45, 15, 65)
-AutoGrabBtn.Text = "Auto-Grab Gun: " .. (_G.AutoGrabGun and "ON" or "OFF")
+end
 end)
--- 5. Gun ESP Toggle Button (Yellow)
-local GunEspBtn = Instance.new("TextButton")
-GunEspBtn.Size = UDim2.new(1, 0, 0, 35)
-GunEspBtn.Position = UDim2.new(0, 0, 0, 177)
-GunEspBtn.BackgroundColor3 = Color3.fromRGB(45, 15, 65)
-GunEspBtn.Text = "Gun ESP: OFF"
-GunEspBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-GunEspBtn.Font = Enum.Font.SourceSansBold
-GunEspBtn.TextSize = 14
-GunEspBtn.Parent = MM2Page
-Instance.new("UICorner", GunEspBtn).CornerRadius = UDim.new(0, 6)
-GunEspBtn.MouseButton1Click:Connect(function()
-_G.GunESP_Enabled = not _G.GunESP_Enabled
-GunEspBtn.BackgroundColor3 = _G.GunESP_Enabled and Color3.fromRGB(240, 200, 0) or Color3.fromRGB(45, 15, 65)
-GunEspBtn.Text = "Gun ESP: " .. (_G.GunESP_Enabled and "ON" or "OFF")
+-- Runtime step loops
+local lastGunInstance = nil
+local notificationTimer = 0
+RunService.RenderStepped:Connect(function(deltaTime)
+local gunDrop = locateGunDrop()
+local char = LocalPlayer.Character
+local localRoot = char and char:FindFirstChild("HumanoidRootPart")
+if gunDrop and localRoot and isCharacterInActiveArena() and not isLocalPlayerSheriff() then
+if gunDrop ~= lastGunInstance then lastGunInstance = gunDrop; notificationTimer = 5.0 end
+if notificationTimer > 0 then
+notificationTimer = notificationTimer - deltaTime
+local distance = math.floor((gunDrop:GetPivot().Position - localRoot.Position).Magnitude)
+notifyText.Text = "GUN DROPPED\n" .. tostring(distance) .. " studs away\nYOU CAN PICK IT UP"
+notifyPanel.Visible = true
+else notifyPanel.Visible = false end
+else lastGunInstance = nil; notificationTimer = 0; notifyPanel.Visible = false end
+if _G.Aimlock_Active then
+FOVCircleFrame.Visible = true
+FOVCircleFrame.Size = UDim2.new(0, _G.FOV_Radius * 2, 0, _G.FOV_Radius * 2)
+if _G.OnlyAimAsSheriff and not isLocalPlayerSheriff() then CircleStroke.Color = fovColorList[currentFovColorIndex] return end
+local targetChar = getMurdererCharacter()
+if targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
+local lockPart = targetChar.HumanoidRootPart
+local screenPoint, onScreen = Camera:WorldToViewportPoint(lockPart.Position)
+if onScreen then
+local distanceToCenter = (Vector2.new(screenPoint.X, screenPoint.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+if distanceToCenter <= _G.FOV_Radius then
+Camera.CFrame = CFrame.new(Camera.CFrame.Position, lockPart.Position + (targetChar.HumanoidRootPart.Velocity * 0.125))
+CircleStroke.Color = Color3.fromRGB(0, 255, 150)
+else CircleStroke.Color = fovColorList[currentFovColorIndex] end
+else CircleStroke.Color = fovColorList[currentFovColorIndex] end
+else CircleStroke.Color = fovColorList[currentFovColorIndex] end
+else FOVCircleFrame.Visible = false end
 end)
--- 6. Role ESP Toggle Button (MM2 Tab)
-local EspBtnMM2 = Instance.new("TextButton")
-EspBtnMM2.Size = UDim2.new(1, 0, 0, 35)
-EspBtnMM2.Position = UDim2.new(0, 0, 0, 220)
-EspBtnMM2.BackgroundColor3 = Color3.fromRGB(45, 15, 65)
-EspBtnMM2.Text = "Role ESP: OFF"
-EspBtnMM2.TextColor3 = Color3.fromRGB(255, 255, 255)
-EspBtnMM2.Font = Enum.Font.SourceSansBold
-EspBtnMM2.TextSize = 14
-EspBtnMM2.Parent = MM2Page
-Instance.new("UICorner", EspBtnMM2).CornerRadius = UDim.new(0, 6)
-table.insert(espButtons, EspBtnMM2)
-EspBtnMM2.MouseButton1Click:Connect(toggleRoleESP)
--- Auto Grab Logic Thread Execution
+-- Farming background processor loops
 task.spawn(function()
-while task.wait(0.5) do
+while true do
+if _G.CoinFarm_Enabled and isCharacterInActiveArena() and not isCoinBagFull() then
+local targetCoin = getClosestCoin()
+local char = LocalPlayer.Character
+local root = char and char:FindFirstChild("HumanoidRootPart")
+local hum = char and char:FindFirstChildOfClass("Humanoid")
+if root and targetCoin and hum then
+hum.PlatformStand = true
+local noclipConnection = RunService.Stepped:Connect(function()
+if _G.CoinFarm_Enabled and char then
+for _, part in ipairs(char:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide = false end end
+end
+end)
+while _G.CoinFarm_Enabled and targetCoin and targetCoin.Parent and not isCoinBagFull() do
+local direction = (targetCoin.Position - root.Position)
+if direction.Magnitude < 2 then root.CFrame = targetCoin.CFrame break end
+root.Velocity = direction.Unit * _G.CoinFarm_Speed
+task.wait()
+end
+noclipConnection:Disconnect()
+root.Velocity = Vector3.new(0,0,0)
+hum.PlatformStand = false
+end
+elseif _G.ResetWhenFull_Enabled and isCoinBagFull() then
+if _G.AutoBuy_Enabled then
+local shopRemote = ReplicatedStorage:FindFirstChild("Shop") or ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Shop")
+if shopRemote and shopRemote:FindFirstChild("BuyItem") then shopRemote.BuyItem:FireServer("MysteryBox1", "Coins") end
+end
+local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+if hum then hum.Health = 0 end
+task.wait(2)
+end
+task.wait(0.01)
+end
+end)
+task.spawn(function()
+while true do
 if _G.AutoGrabGun then
 local gunDrop = locateGunDrop()
-local character = LocalPlayer.Character
-if character and gunDrop and character:FindFirstChild("HumanoidRootPart") then
-local currentRoot = character.HumanoidRootPart
-local oldCFrame = currentRoot.CFrame
-currentRoot.CFrame = gunDrop:GetPivot()
-task.wait(0.1)
-currentRoot.CFrame = oldCFrame
+if gunDrop and not isLocalPlayerSheriff() and isCharacterInActiveArena() then teleportToGun() end
 end
-end
-end
-end)
--- ====================================================================
--- INDEPENDENT FLOATING AIMLOCK SQUARE CONTROLLER BUTTON (PINK)
--- ====================================================================
-local AimlockSquare = Instance.new("TextButton")
-AimlockSquare.Name = "AimlockSquare"
-AimlockSquare.Size = UDim2.new(0, 65, 0, 65)
-AimlockSquare.Position = UDim2.new(0.8, 0, 0.5, -32)
-AimlockSquare.BackgroundColor3 = Color3.fromRGB(40, 10, 30)
-AimlockSquare.BackgroundTransparency = 0.35
-AimlockSquare.BorderSizePixel = 0
-AimlockSquare.Text = "Aimlock"
-AimlockSquare.TextColor3 = Color3.fromRGB(255, 255, 255)
-AimlockSquare.Font = Enum.Font.SourceSansBold
-AimlockSquare.TextSize = 13
-AimlockSquare.Parent = ScreenGui
-local SquareCorner = Instance.new("UICorner")
-SquareCorner.CornerRadius = UDim.new(0, 6)
-SquareCorner.Parent = AimlockSquare
-local SquareOutline = Instance.new("UIStroke")
-SquareOutline.Thickness = 2
-SquareOutline.Color = Color3.fromRGB(255, 0, 150)
-SquareOutline.Parent = AimlockSquare
--- Custom Drag Mechanics for the Aimlock Square
-local aimDragging = false
-local aimDragInput, aimDragStart, aimStartPos
-AimlockSquare.InputBegan:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-aimDragging = true
-aimDragStart = input.Position
-aimStartPos = AimlockSquare.Position
-input.Changed:Connect(function()
-if input.UserInputState == Enum.UserInputState.End then
-aimDragging = false
-end
-end)
-end
-end)
-AimlockSquare.InputChanged:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-aimDragInput = input
-end
-end)
-UserInputService.InputChanged:Connect(function(input)
-if input == aimDragInput and aimDragging then
-local delta = input.Position - aimDragStart
-AimlockSquare.Position = UDim2.new(aimStartPos.X.Scale, aimStartPos.X.Offset + delta.X, aimStartPos.Y.Scale, aimStartPos.Y.Offset + delta.Y)
-end
-end)
-AimlockSquare.MouseButton1Click:Connect(function()
-_G.Aimlock_Active = not _G.Aimlock_Active
-if _G.Aimlock_Active then
-SquareOutline.Color = Color3.fromRGB(0, 255, 150)
-AimlockSquare.TextColor3 = Color3.fromRGB(0, 255, 150)
-else
-SquareOutline.Color = Color3.fromRGB(255, 0, 150)
-AimlockSquare.TextColor3 = Color3.fromRGB(255, 255, 255)
-end
-end)
--- ====================================================================
--- WINDOW MINIMIZATION MANAGEMENT SETUP
--- ====================================================================
-local OpenButton = Instance.new("TextButton")
-OpenButton.Size = UDim2.new(0, 100, 0, 40)
-OpenButton.Position = UDim2.new(0, 10, 1, -50)
-OpenButton.BackgroundColor3 = Color3.fromRGB(255, 0, 150)
-OpenButton.Text = "Dayana's"
-OpenButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-OpenButton.Font = Enum.Font.SourceSansBold
-OpenButton.TextSize = 16
-OpenButton.Visible = false
-OpenButton.Parent = ScreenGui
-local Stroke = Instance.new("UIStroke", OpenButton)
-Stroke.Color = Color3.fromRGB(255, 255, 255)
-Stroke.Thickness = 1.5
--- FIXED: Both minimize and maximize button connection event paths are now fully secure
-MinButton.MouseButton1Click:Connect(function()
-MainFrame.Visible = false
-OpenButton.Visible = true
-if _G.TpButton_Draggable then
-TpGunBtn.Visible = true
-end
-end)
-OpenButton.MouseButton1Click:Connect(function()
-MainFrame.Visible = true
-OpenButton.Visible = false
-if _G.TpButton_Draggable then
-TpGunBtn.Visible = true
+task.wait(0.2)
 end
 end)
