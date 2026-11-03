@@ -679,7 +679,7 @@ createMenuToggle("Draggable Aimlock Button", "AimButton_Draggable", mm2Scroll, f
 createMenuToggle("Only Aim While Sheriff", "OnlyAimAsSheriff", mm2Scroll)
 createMenuToggle("Gun Tracking ESP", "GunESP_Enabled", mm2Scroll)
 createMenuAction("Teleport to Dropped Gun", mm2Scroll, function() teleportToGun() end)
-createMenuToggle("Draggable Gun TP Button", "TpButton_Draggable", mm2Scroll, function(state) dragTpButton.Visible = state end)
+createMenuToggle("Gun TP Button", "TpButton_Draggable", mm2Scroll, function(state) dragTpButton.Visible = state end)
 -- --- TAB 2: COIN FARM CONTROLS ---
 createMenuToggle("Coin & Candy Farm", "CoinFarm_Enabled", coinScroll)
 createMenuToggle("Gold Candy ESP", "MM2_ESP_Enabled", coinScroll)
